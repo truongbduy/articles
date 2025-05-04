@@ -46,12 +46,14 @@ class UVXYStrategy(Strategy):
         super().__init__(config=config)
         self.position = None
         self.z = 0.0
+        self.bar_counts = 0
 
     def on_start(self):
         self.subscribe_bars(self.config.bar_type_1day)
         self.subscribe_data(DataType(ZFromNBars))
 
     def on_bar(self, bar: Bar):
+        self.bar_counts += 1
         # Compute statistics on last N bars
         bars = self.cache.bars(self.config.bar_type_1day)[: self.config.n_bars]
         closes = np.array([float(b.close) for b in bars])
@@ -64,7 +66,7 @@ class UVXYStrategy(Strategy):
         self.publish_data(DataType(ZFromNBars), data)
 
     def on_data(self, data):
-        if isinstance(data, ZFromNBars):
+        if isinstance(data, ZFromNBars) and self.bar_counts >= self.config.bar_counts:
             self.z = data.z
             self._try_enter()
             self._try_exit()
@@ -111,7 +113,7 @@ if __name__ == "__main__":
                 config = {
                     "instrument_id": instrument,
                     "bar_type_1day": UVXY_ETF_1DAY_BARTYPE,
-                    "trading_side": 50_000_000,
+                    "trading_side": 100_000,
                     "threshold": 2,
                     "n_bars": 20
                 }
@@ -149,7 +151,6 @@ if __name__ == "__main__":
     import yfinance as yf
     df = yf.download("UVXY", start="2020-01-01", end="2025-01-01")
     df = df.rename(columns={"Open":"open", "High":"high", "Low":"low", "Close":"close", "Volume":"volume"})
-    df = df / 1e9  # scale example
     wrangler = BarDataWrangler(UVXY_ETF_1DAY_BARTYPE, eq)
     bars = wrangler.process(df)
     engine.add_data(bars)
