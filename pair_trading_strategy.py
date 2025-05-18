@@ -119,11 +119,9 @@ class PairTradingStrategy(Strategy):
         if bar.bar_type == self.config.bar_types[0]:
             self.log.info(f"First stock bar: {bar}", LogColor.RED)
             self.first_stock_bar_count += 1
-            price_a = bar.close
         elif bar.bar_type == self.config.bar_types[1]:
             self.log.info(f"Second stock bar: {bar}", LogColor.RED)
             self.second_stock_bar_count += 1
-            price_b = bar.close
 
         # Calculate spread metrics when we have enough data
         if self.first_stock_bar_count == self.second_stock_bar_count:
