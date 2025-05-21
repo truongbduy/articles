@@ -33,17 +33,23 @@ def setup_backtest_engine(
     databento_api_key: str,
     data_path: Path = Path("data/databento"),
 ) -> BacktestEngine:
-    """
-    Set up and configure the backtesting engine for pair trading.
+    """Set up and configure the backtesting engine for pair trading.
     
-    Args:
-        instrument_ids: List of instruments to trade
-        bar_types: List of bar types for each instrument
-        databento_api_key: Databento API key for data access
-        data_path: Path to store downloaded data
+    Parameters
+    ----------
+    instrument_ids : list[InstrumentId]
+        List of instruments to trade.
+    bar_types : list[BarType]
+        List of bar types for each instrument.
+    databento_api_key : str
+        Databento API key for data access.
+    data_path : Path, optional
+        Path to store downloaded data, by default Path("data/databento")
         
-    Returns:
-        Configured backtesting engine
+    Returns
+    -------
+    BacktestEngine
+        Configured backtesting engine.
     """
     # Create data directory
     data_path.mkdir(exist_ok=True)
@@ -116,16 +122,22 @@ def load_historical_data(
     start_time: str = "2024-01-09T09:30-04:00",
     end_time: str = "2025-01-09T10:00-04:00",
 ) -> None:
-    """
-    Download and load historical data for backtesting.
+    """Download and load historical data for backtesting.
     
-    Args:
-        engine: Backtesting engine
-        instrument_ids: List of instruments to load data for
-        api_key: Databento API key
-        data_path: Path to store downloaded data
-        start_time: Start time for data download
-        end_time: End time for data download
+    Parameters
+    ----------
+    engine : BacktestEngine
+        Backtesting engine instance.
+    instrument_ids : list[InstrumentId]
+        List of instruments to load data for.
+    api_key : str
+        Databento API key.
+    data_path : Path
+        Path to store downloaded data.
+    start_time : str, optional
+        Start time for data download, by default "2024-01-09T09:30-04:00"
+    end_time : str, optional
+        End time for data download, by default "2025-01-09T10:00-04:00"
     """
     # Initialize Databento client
     client = db.Historical(api_key)
@@ -160,7 +172,11 @@ def load_historical_data(
     engine.add_data(data)
 
 def main():
-    """Run the pair trading backtest."""
+    """Run the pair trading backtest.
+    
+    This function sets up the backtesting environment with PEP and KO stocks,
+    configures the engine, and runs the backtest.
+    """
     # Define instruments and bar types
     instrument_ids = [
         InstrumentId.from_str("PEP.XNAS"),

@@ -31,17 +31,24 @@ from nautilus_trader.model.identifiers import InstrumentId
 # --- Strategy Configuration ---
 
 class PairTradingConfig(StrategyConfig):
-    """
-    Configuration for the Pair Trading Strategy.
+    """Configuration for the Pair Trading Strategy.
     
-    Attributes:
-        instrument_ids: List of two instruments to trade as a pair
-        bar_types: List of bar types for each instrument
-        enter_threshold: Z-score threshold for entering positions
-        exit_threshold: Z-score threshold for exiting positions
-        beta: Hedge ratio between the two instruments
-        window: Lookback window for spread calculation
-        trading_size: Number of shares to trade
+    Parameters
+    ----------
+    instrument_ids : List[InstrumentId]
+        List of two instruments to trade as a pair.
+    bar_types : List[BarType]
+        List of bar types for each instrument.
+    enter_threshold : float, optional
+        Z-score threshold for entering positions, by default 1.2
+    exit_threshold : float, optional
+        Z-score threshold for exiting positions, by default 0.0
+    beta : float, optional
+        Hedge ratio between the two instruments, by default 1.1
+    window : int, optional
+        Lookback window for spread calculation, by default 10
+    trading_size : int, optional
+        Number of shares to trade, by default 1
     """
     instrument_ids: List[InstrumentId]
     bar_types: List[BarType]
@@ -53,14 +60,22 @@ class PairTradingConfig(StrategyConfig):
 
 # --- Custom Data Container ---
 class PairTradingData(Data):
-    """
-    Custom data container for pair trading metrics.
+    """Custom data container for pair trading metrics.
     
-    Attributes:
-        spread: Current spread between the pair
-        mean: Rolling mean of the spread
-        std: Rolling standard deviation of the spread
-        zscore: Current z-score of the spread
+    Parameters
+    ----------
+    spread : float
+        Current spread between the pair.
+    mean : float
+        Rolling mean of the spread.
+    std : float
+        Rolling standard deviation of the spread.
+    zscore : float
+        Current z-score of the spread.
+    ts_event : int
+        Timestamp of the event.
+    ts_init : int
+        Timestamp of initialization.
     """
     def __init__(
         self,
@@ -80,22 +95,27 @@ class PairTradingData(Data):
 
 # --- Strategy Implementation ---
 class PairTradingStrategy(Strategy):
-    """
-    Statistical arbitrage strategy that trades pairs of stocks based on their price relationship.
+    """Statistical arbitrage strategy that trades pairs of stocks based on their price relationship.
     
     The strategy:
     1. Monitors price bars for both instruments
     2. Calculates the spread and its statistics
     3. Enters positions when the spread deviates significantly
     4. Exits positions when the spread reverts to mean
+    
+    Parameters
+    ----------
+    config : PairTradingConfig
+        Strategy configuration parameters.
     """
     
     def __init__(self, config: PairTradingConfig):
-        """
-        Initialize the pair trading strategy.
+        """Initialize the pair trading strategy.
         
-        Args:
-            config: Strategy configuration parameters
+        Parameters
+        ----------
+        config : PairTradingConfig
+            Strategy configuration parameters.
         """
         super().__init__(config=config)
         self.first_stock_bar_count = 0
@@ -103,17 +123,21 @@ class PairTradingStrategy(Strategy):
         self.direction = 0  # 0: no position, 1: long-short, -1: short-long
 
     def on_start(self) -> None:
-        """Initialize strategy subscriptions."""
+        """Initialize strategy subscriptions.
+        
+        This method subscribes to bar data and pair trading metrics.
+        """
         for bar_type in self.config.bar_types:
             self.subscribe_bars(bar_type)
         self.subscribe_data(DataType(PairTradingData))
 
     def on_bar(self, bar) -> None:
-        """
-        Process incoming bar data and calculate pair trading metrics.
+        """Process incoming bar data and calculate pair trading metrics.
         
-        Args:
-            bar: Price bar data for either instrument
+        Parameters
+        ----------
+        bar : Bar
+            Price bar data for either instrument.
         """
         # Update bar counts and get prices
         if bar.bar_type == self.config.bar_types[0]:
@@ -128,7 +152,13 @@ class PairTradingStrategy(Strategy):
             self._calculate_spread_metrics()
 
     def _calculate_spread_metrics(self) -> None:
-        """Calculate spread metrics and publish pair trading data."""
+        """Calculate spread metrics and publish pair trading data.
+        
+        This method:
+        1. Retrieves recent price bars
+        2. Calculates the spread and its statistics
+        3. Publishes the pair trading metrics
+        """
         # Get recent price bars
         bars_1 = self.cache.bars(self.config.bar_types[0])[:self.config.window]
         bars_2 = self.cache.bars(self.config.bar_types[1])[:self.config.window]
@@ -150,11 +180,12 @@ class PairTradingStrategy(Strategy):
         self.publish_data(DataType(PairTradingData), data)
 
     def on_data(self, data: PairTradingData) -> None:
-        """
-        Process pair trading metrics and execute trading logic.
+        """Process pair trading metrics and execute trading logic.
         
-        Args:
-            data: Pair trading metrics data
+        Parameters
+        ----------
+        data : PairTradingData
+            Pair trading metrics data.
         """
         self.log.info(f"Spread mean: {data.mean}", LogColor.YELLOW)
         self.log.info(f"Spread std: {data.std}", LogColor.YELLOW)
@@ -165,11 +196,12 @@ class PairTradingStrategy(Strategy):
             self._try_exit(data)
 
     def _try_enter(self, data: PairTradingData) -> None:
-        """
-        Attempt to enter pair trading positions based on z-score.
+        """Attempt to enter pair trading positions based on z-score.
         
-        Args:
-            data: Pair trading metrics data
+        Parameters
+        ----------
+        data : PairTradingData
+            Pair trading metrics data.
         """
         if data.zscore > self.config.enter_threshold and self.direction == 0:
             # Enter long-short position
@@ -181,11 +213,12 @@ class PairTradingStrategy(Strategy):
             self.direction = -1
 
     def _try_exit(self, data: PairTradingData) -> None:
-        """
-        Attempt to exit pair trading positions based on z-score.
+        """Attempt to exit pair trading positions based on z-score.
         
-        Args:
-            data: Pair trading metrics data
+        Parameters
+        ----------
+        data : PairTradingData
+            Pair trading metrics data.
         """
         if (self.direction == 1 and data.zscore < -self.config.exit_threshold) or \
            (self.direction == -1 and data.zscore > self.config.exit_threshold):
@@ -195,12 +228,14 @@ class PairTradingStrategy(Strategy):
             self.direction = 0
 
     def _submit_pair_orders(self, side1: OrderSide, side2: OrderSide) -> None:
-        """
-        Submit orders for both instruments in the pair.
+        """Submit orders for both instruments in the pair.
         
-        Args:
-            side1: Order side for first instrument
-            side2: Order side for second instrument
+        Parameters
+        ----------
+        side1 : OrderSide
+            Order side for first instrument.
+        side2 : OrderSide
+            Order side for second instrument.
         """
         # Create and submit orders
         order_1 = self.order_factory.market(
@@ -217,7 +252,12 @@ class PairTradingStrategy(Strategy):
         self.submit_order(order_2)
 
     def on_stop(self) -> None:
-        """Clean up strategy subscriptions and positions."""
+        """Clean up strategy subscriptions and positions.
+        
+        This method:
+        1. Unsubscribes from data streams
+        2. Closes all open positions
+        """
         self.unsubscribe_data(DataType(PairTradingData))
         for bar_type in self.config.bar_types:
             self.unsubscribe_bars(bar_type)
